@@ -3,10 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { mockSkillCategories, mockQuestions } from '@/lib/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Question, QuestionResult, QuizAttempt } from '@/types';
 import { Clock, CheckCircle, XCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 
 const Quiz = () => {
@@ -14,30 +12,60 @@ const Quiz = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  
+  const API_URL = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem('token');
+
   const categoryId = searchParams.get('category');
+  const [category, setCategory] = useState<any>(null);
+  const [questions, setQuestions] = useState<any[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<{ [key: number]: number }>({});
   const [timeSpent, setTimeSpent] = useState(0);
-  const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [isCompleted, setIsCompleted] = useState(false);
-  const [results, setResults] = useState<QuizAttempt | null>(null);
+  const [results, setResults] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const category = mockSkillCategories.find(c => c.id === categoryId);
-  const questions = mockQuestions.filter(q => q.skillCategoryId === categoryId);
+  // Fetch category and questions from backend
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch category
+        const catRes = await fetch(`${API_URL}/skill-categories/${categoryId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!catRes.ok) throw new Error('Failed to fetch category');
+        const catData = await catRes.json();
+        setCategory(catData.category);
+
+        // Fetch questions for this category
+        const qRes = await fetch(`${API_URL}/questions?skill_category_id=${categoryId}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!qRes.ok) throw new Error('Failed to fetch questions');
+        const qData = await qRes.json();
+        setQuestions(qData.questions || []);
+      } catch (err: any) {
+        setError(err.message || 'Failed to load quiz');
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (categoryId) fetchData();
+  }, [categoryId]);
 
   useEffect(() => {
-    if (!category || !questions.length) {
+    if (!loading && (!category || !questions.length)) {
       navigate('/dashboard');
-      return;
     }
-  }, [category, questions, navigate]);
+  }, [category, questions, loading, navigate]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeSpent(prev => prev + 1);
     }, 1000);
-
     return () => clearInterval(timer);
   }, []);
 
@@ -51,51 +79,64 @@ const Quiz = () => {
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
-      setQuestionStartTime(Date.now());
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(prev => prev - 1);
-      setQuestionStartTime(Date.now());
     }
   };
 
-  const handleSubmit = () => {
-    const questionResults: QuestionResult[] = questions.map((question, index) => {
-      const selectedAnswer = selectedAnswers[index];
-      const isCorrect = selectedAnswer === question.correctAnswer;
-      
-      return {
-        questionId: question.id,
-        selectedAnswer: selectedAnswer ?? -1,
-        isCorrect,
-        timeSpent: Math.floor(Math.random() * 60) + 30 // Mock time spent
-      };
-    });
-
-    const correctAnswers = questionResults.filter(r => r.isCorrect).length;
-    const score = Math.round((correctAnswers / questions.length) * 100);
-
-    const quizResult: QuizAttempt = {
-      id: Date.now().toString(),
-      userId: user?.id || '',
-      skillCategoryId: categoryId || '',
-      questions: questionResults,
-      score,
-      totalQuestions: questions.length,
-      completedAt: new Date().toISOString(),
-      timeSpent
-    };
-
-    setResults(quizResult);
-    setIsCompleted(true);
-
-    toast({
-      title: 'Quiz Completed!',
-      description: `You scored ${score}% (${correctAnswers}/${questions.length})`,
-    });
+  const handleSubmit = async () => {
+    if (!user || !categoryId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      // Prepare answers for backend
+      const answers = questions.map((q, idx) => ({
+        question_id: q.id,
+        selected_option: selectedAnswers[idx]
+      }));
+      const res = await fetch(`${API_URL}/quiz/attempt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          skill_category_id: categoryId,
+          answers
+        })
+      });
+      if (!res.ok) {
+        let errorMsg = 'Failed to submit quiz';
+        try {
+          const text = await res.text();
+          if (text) {
+            const data = JSON.parse(text);
+            errorMsg = data.message || JSON.stringify(data);
+          }
+        } catch {}
+        throw new Error(errorMsg);
+      }
+      const data = await res.json();
+      setResults({
+        score: Math.round((data.score / data.total) * 100),
+        correct: data.score,
+        total: data.total,
+        results: data.results
+      });
+      setIsCompleted(true);
+      toast({
+        title: 'Quiz Completed!',
+        description: `You scored ${Math.round((data.score / data.total) * 100)}% (${data.score}/${data.total})`,
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit quiz');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -104,9 +145,9 @@ const Quiz = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (!category || !questions.length) {
-    return <div>Loading...</div>;
-  }
+  if (loading) return <div className="p-6">Loading quiz...</div>;
+  if (error) return <div className="p-6 text-red-500">{error}</div>;
+  if (!category || !questions.length) return <div>Loading...</div>;
 
   if (isCompleted && results) {
     return (
@@ -123,7 +164,7 @@ const Quiz = () => {
               </div>
             </div>
             <p className="text-muted-foreground">
-              You answered {results.questions.filter(q => q.isCorrect).length} out of {results.totalQuestions} questions correctly
+              You answered {results.correct} out of {results.total} questions correctly
             </p>
           </CardHeader>
           <CardContent>
@@ -132,7 +173,7 @@ const Quiz = () => {
                 <CardContent className="p-4 text-center">
                   <CheckCircle className="h-8 w-8 text-success mx-auto mb-2" />
                   <div className="text-2xl font-bold text-success">
-                    {results.questions.filter(q => q.isCorrect).length}
+                    {results.correct}
                   </div>
                   <p className="text-sm text-muted-foreground">Correct</p>
                 </CardContent>
@@ -141,7 +182,7 @@ const Quiz = () => {
                 <CardContent className="p-4 text-center">
                   <XCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
                   <div className="text-2xl font-bold text-destructive">
-                    {results.questions.filter(q => !q.isCorrect).length}
+                    {results.total - results.correct}
                   </div>
                   <p className="text-sm text-muted-foreground">Incorrect</p>
                 </CardContent>
@@ -150,7 +191,7 @@ const Quiz = () => {
                 <CardContent className="p-4 text-center">
                   <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
                   <div className="text-2xl font-bold">
-                    {formatTime(results.timeSpent)}
+                    {formatTime(timeSpent)}
                   </div>
                   <p className="text-sm text-muted-foreground">Time Spent</p>
                 </CardContent>
@@ -160,9 +201,8 @@ const Quiz = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Question Review</h3>
               {questions.map((question, index) => {
-                const result = results.questions[index];
-                const isCorrect = result.isCorrect;
-                
+                const result = results.results[index];
+                const isCorrect = result.is_correct;
                 return (
                   <Card key={question.id} className={`border-l-4 ${
                     isCorrect ? 'border-l-success' : 'border-l-destructive'
@@ -170,24 +210,24 @@ const Quiz = () => {
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <p className="font-medium mb-2">{question.question}</p>
+                          <p className="font-medium mb-2">{question.question_text}</p>
                           <div className="space-y-1">
-                            {question.options.map((option, optionIndex) => (
+                            {question.options.map((option: string, optionIndex: number) => (
                               <div
                                 key={optionIndex}
                                 className={`p-2 rounded text-sm ${
-                                  optionIndex === question.correctAnswer
+                                  optionIndex === question.correct_option
                                     ? 'bg-success/10 text-success border border-success/20'
-                                    : optionIndex === result.selectedAnswer && !isCorrect
+                                    : optionIndex === result.selected_option && !isCorrect
                                     ? 'bg-destructive/10 text-destructive border border-destructive/20'
                                     : 'bg-muted/50'
                                 }`}
                               >
                                 {option}
-                                {optionIndex === question.correctAnswer && (
+                                {optionIndex === question.correct_option && (
                                   <span className="ml-2 text-xs">(Correct)</span>
                                 )}
-                                {optionIndex === result.selectedAnswer && optionIndex !== question.correctAnswer && (
+                                {optionIndex === result.selected_option && optionIndex !== question.correct_option && (
                                   <span className="ml-2 text-xs">(Your answer)</span>
                                 )}
                               </div>
@@ -261,20 +301,14 @@ const Quiz = () => {
       {/* Question Card */}
       <Card className="shadow-elegant">
         <CardHeader>
-          <CardTitle className="text-lg">{currentQuestion.question}</CardTitle>
+          <CardTitle className="text-lg">{currentQuestion.question_text}</CardTitle>
           <div className="flex items-center space-x-2">
-            <span className={`px-2 py-1 text-xs rounded-full ${
-              currentQuestion.difficulty === 'easy' ? 'bg-success/10 text-success' :
-              currentQuestion.difficulty === 'medium' ? 'bg-warning/10 text-warning' :
-              'bg-destructive/10 text-destructive'
-            }`}>
-              {currentQuestion.difficulty}
-            </span>
+            {/* Optionally show difficulty if available */}
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => (
+            {currentQuestion.options.map((option: string, index: number) => (
               <button
                 key={index}
                 onClick={() => handleAnswerSelect(index)}
