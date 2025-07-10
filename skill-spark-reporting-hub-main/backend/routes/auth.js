@@ -68,4 +68,14 @@ router.post('/login', [
   }
 });
 
+// TEMPORARY DEBUG ENDPOINT: List recent users (remove after debugging!)
+router.get('/debug-users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, name, email FROM users ORDER BY id DESC LIMIT 10');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router; 
