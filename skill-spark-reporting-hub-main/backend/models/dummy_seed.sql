@@ -1,14 +1,22 @@
 -- Dummy Users
 INSERT INTO users (name, email, password, role) VALUES
-  ('Admin User', 'admin@skillportal.com', '$2b$10$wH6QwQwQwQwQwQwQwQwQwOQwQwQwQwQwQwQwQwQwQwQwQwQW', 'admin'),
-  ('John Doe', 'john.doe@example.com', '$2b$10$wH6QwQwQwQwQwQwQwQwQwOQwQwQwQwQwQwQwQwQwQwQwQwQW', 'user');
+  ('Admin User', 'admin@skillportal.com', '$2b$10$2DpimKkS/pzxmWm56Pvh4Os9/ozNYWfAuvjR8krka.Noy0OUZ1fh6', 'admin'),
+  ('John Doe', 'john.doe@example.com', '$2b$10$2DpimKkS/pzxmWm56Pvh4Os9/ozNYWfAuvjR8krka.Noy0OUZ1fh6', 'user');
 -- Password for both: password123
 
 -- Dummy Skill Categories
 INSERT INTO skill_categories (name, description) VALUES
   ('JavaScript', 'JavaScript basics and advanced concepts'),
   ('Python', 'Python programming fundamentals'),
-  ('SQL', 'Database and SQL queries');
+  ('SQL', 'Database and SQL queries'),
+  ('React', 'React.js front-end framework'),
+  ('Node.js', 'Node.js backend development'),
+  ('DevOps', 'CI/CD, Docker, and cloud deployment'),
+  ('Data Structures', 'Core data structures for coding interviews'),
+  ('Algorithms', 'Algorithmic problem solving and analysis'),
+  ('HTML & CSS', 'Web markup and styling'),
+  ('TypeScript', 'Typed superset of JavaScript'),
+  ('Linux', 'Linux OS and command line basics');
 
 -- Dummy Questions
 INSERT INTO questions (skill_category_id, question_text, options, correct_option) VALUES
