@@ -25,7 +25,12 @@ const UserManagement: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/users`);
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/users`, {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(data.users || []);
@@ -41,7 +46,13 @@ const UserManagement: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/users/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (!res.ok) throw new Error("Failed to delete user");
       fetchUsers();
     } catch (err: any) {
@@ -71,17 +82,24 @@ const UserManagement: React.FC = () => {
     e.preventDefault();
     setFormError(null);
     try {
+      const token = localStorage.getItem('token');
       if (isEdit) {
         const res = await fetch(`${API_URL}/users/${formUser.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ name: formUser.name, email: formUser.email, role: formUser.role })
         });
         if (!res.ok) throw new Error("Failed to update user");
       } else {
         const res = await fetch(`${API_URL}/users`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ name: formUser.name, email: formUser.email, password: 'changeme', role: formUser.role })
         });
         if (!res.ok) {
