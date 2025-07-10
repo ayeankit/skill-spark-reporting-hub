@@ -13,6 +13,7 @@ import UserManagement from "./pages/UserManagement";
 import Report from "./pages/Report";
 import SkillCategories from "./pages/SkillCategories";
 import Questions from "./pages/Questions";
+import Performance from "./pages/Performance";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,11 @@ const App = () => (
             <Route path="/admin/questions" element={
               <ProtectedRoute>
                 <Questions />
+              </ProtectedRoute>
+            } />
+            <Route path="/performance" element={
+              <ProtectedRoute>
+                <Performance />
               </ProtectedRoute>
             } />
             <Route path="*" element={<NotFound />} />
