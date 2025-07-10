@@ -6,7 +6,28 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// List skill categories with pagination and filtering (admin only)
+// User-accessible: List all skill categories
+router.get('/user', authenticateToken, async (req, res) => {
+  try {
+    const categoriesResult = await pool.query('SELECT * FROM skill_categories ORDER BY created_at DESC');
+    res.json({ categories: categoriesResult.rows });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// User-accessible: Get skill category by ID
+router.get('/user/:id', authenticateToken, async (req, res) => {
+  try {
+    const categoriesResult = await pool.query('SELECT * FROM skill_categories WHERE id = $1', [req.params.id]);
+    if (categoriesResult.rows.length === 0) return res.status(404).json({ message: 'Skill category not found' });
+    res.json({ category: categoriesResult.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Admin-only: List skill categories with pagination and filtering
 router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { page = 1, limit = 10, search = '' } = req.query;
   const offset = (page - 1) * limit;
@@ -25,33 +46,12 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
   }
 });
 
-// Get skill category by ID (admin only)
+// Admin-only: Get skill category by ID
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const categoriesResult = await pool.query('SELECT * FROM skill_categories WHERE id = $1', [req.params.id]);
     if (categoriesResult.rows.length === 0) return res.status(404).json({ message: 'Skill category not found' });
     res.json(categoriesResult.rows[0]);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// User-accessible: Get skill category by ID
-router.get('/user/:id', authenticateToken, async (req, res) => {
-  try {
-    const categoriesResult = await pool.query('SELECT * FROM skill_categories WHERE id = $1', [req.params.id]);
-    if (categoriesResult.rows.length === 0) return res.status(404).json({ message: 'Skill category not found' });
-    res.json({ category: categoriesResult.rows[0] });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// User-accessible: List all skill categories
-router.get('/user', authenticateToken, async (req, res) => {
-  try {
-    const categoriesResult = await pool.query('SELECT * FROM skill_categories ORDER BY created_at DESC');
-    res.json({ categories: categoriesResult.rows });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
