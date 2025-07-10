@@ -31,10 +31,16 @@ const Quiz = () => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('No token provided. Please log in again.');
+        setLoading(false);
+        return;
+      }
       try {
         // Fetch category (user endpoint)
         const catRes = await fetch(`${API_URL}/skill-categories/user/${categoryId}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!catRes.ok) throw new Error('Failed to fetch category');
         const catData = await catRes.json();
@@ -42,7 +48,7 @@ const Quiz = () => {
 
         // Fetch questions for this category (user endpoint)
         const qRes = await fetch(`${API_URL}/questions/user?skill_category_id=${categoryId}`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!qRes.ok) throw new Error('Failed to fetch questions');
         const qData = await qRes.json();
@@ -54,7 +60,7 @@ const Quiz = () => {
       }
     };
     if (categoryId) fetchData();
-  }, [categoryId]);
+  }, [categoryId, API_URL]);
 
   useEffect(() => {
     if (!loading && (!category || !questions.length)) {
