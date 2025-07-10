@@ -33,11 +33,13 @@ const Questions: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   const fetchQuestions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/questions");
+      const res = await fetch(`${API_URL}/questions`);
       if (!res.ok) throw new Error("Failed to fetch questions");
       const data = await res.json();
       setQuestions(data.questions || []);
@@ -50,7 +52,7 @@ const Questions: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch("/api/skill-categories");
+      const res = await fetch(`${API_URL}/skill-categories`);
       if (!res.ok) throw new Error("Failed to fetch skill categories");
       const data = await res.json();
       setCategories(data.categories || []);
@@ -65,7 +67,7 @@ const Questions: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this question?")) return;
     try {
-      const res = await fetch(`/api/questions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete question");
       fetchQuestions();
     } catch (err: any) {
@@ -111,7 +113,7 @@ const Questions: React.FC = () => {
         throw new Error('At least two options are required and none can be empty.');
       }
       if (isEdit) {
-        const res = await fetch(`/api/questions/${formQuestion.id}`, {
+        const res = await fetch(`${API_URL}/questions/${formQuestion.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -123,7 +125,7 @@ const Questions: React.FC = () => {
         });
         if (!res.ok) throw new Error("Failed to update question");
       } else {
-        const res = await fetch('/api/questions', {
+        const res = await fetch(`${API_URL}/questions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

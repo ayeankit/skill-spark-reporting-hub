@@ -13,11 +13,13 @@ const Report: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState("week");
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
-      let url = "/api/reports/" + tab;
+      let url = `${API_URL}/reports/` + tab;
       if (tab === "time-performance") url += `?period=${period}`;
       try {
         const res = await fetch(url);
