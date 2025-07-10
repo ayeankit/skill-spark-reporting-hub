@@ -41,17 +41,46 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onToggleMode }) => {
     }
 
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: 'Registration Successful!',
-      description: 'Your account has been created. Please sign in.',
-    });
-    
-    setIsLoading(false);
-    onToggleMode(); // Switch to login form
+
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        })
+      });
+      if (!res.ok) {
+        let errorMsg = 'Registration failed';
+        try {
+          const data = await res.json();
+          errorMsg = data.message || (data.errors && data.errors[0]?.msg) || errorMsg;
+        } catch {}
+        toast({
+          title: 'Registration Failed',
+          description: errorMsg,
+          variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
+      }
+      toast({
+        title: 'Registration Successful!',
+        description: 'Your account has been created. Please sign in.',
+      });
+      setIsLoading(false);
+      onToggleMode(); // Switch to login form
+    } catch (err: any) {
+      toast({
+        title: 'Registration Failed',
+        description: err.message || 'Unknown error',
+        variant: 'destructive'
+      });
+      setIsLoading(false);
+    }
   };
 
   return (
