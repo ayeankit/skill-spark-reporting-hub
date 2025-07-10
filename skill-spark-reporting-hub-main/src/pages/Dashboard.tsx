@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { mockSkillCategories, mockQuizAttempts, mockUserPerformance } from '@/lib/mockData';
 import {
   BookOpen,
   Trophy,
@@ -16,6 +15,105 @@ import {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const API_URL = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem('token');
+
+  // Admin stats
+  const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [totalAttempts, setTotalAttempts] = useState<number>(0);
+  const [avgScore, setAvgScore] = useState<number>(0);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // User stats
+  const [userAttempts, setUserAttempts] = useState<any[]>([]);
+  const [userCategories, setUserCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchAdminStats = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch users
+        const usersRes = await fetch(`${API_URL}/users`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const usersData = await usersRes.json();
+        setTotalUsers(usersData.users ? usersData.users.length : 0);
+
+        // Fetch skill categories
+        const catRes = await fetch(`${API_URL}/skill-categories`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const catData = await catRes.json();
+        setCategories(catData.categories || []);
+
+        // Fetch quiz attempts (admin summary)
+        const reportRes = await fetch(`${API_URL}/reports/user-performance`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const reportData = await reportRes.json();
+        // Calculate total attempts and avg score
+        let attempts = 0;
+        let scoreSum = 0;
+        let scoreCount = 0;
+        if (Array.isArray(reportData)) {
+          reportData.forEach((row: any) => {
+            attempts += Number(row.total_attempts || 0);
+            if (row.avg_score !== null) {
+              scoreSum += Number(row.avg_score);
+              scoreCount++;
+            }
+          });
+        }
+        setTotalAttempts(attempts);
+        setAvgScore(scoreCount > 0 ? Math.round(scoreSum / scoreCount) : 0);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchUserStats = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Fetch user's quiz attempts
+        const attemptsRes = await fetch(`${API_URL}/quiz/attempts`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const attemptsData = await attemptsRes.json();
+        setUserAttempts(attemptsData.attempts || []);
+
+        // Fetch skill categories
+        const catRes = await fetch(`${API_URL}/skill-categories`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        const catData = await catRes.json();
+        setUserCategories(catData.categories || []);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch dashboard data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'admin') {
+      fetchAdminStats();
+    } else if (user) {
+      fetchUserStats();
+    }
+    // eslint-disable-next-line
+  }, [user]);
+
+  if (loading) {
+    return <div className="p-6">Loading dashboard...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-red-500">{error}</div>;
+  }
 
   if (user?.role === 'admin') {
     return (
@@ -32,9 +130,9 @@ const Dashboard = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">127</div>
+              <div className="text-2xl font-bold">{totalUsers}</div>
               <p className="text-xs text-muted-foreground">
-                +12% from last month
+                Real-time count
               </p>
             </CardContent>
           </Card>
@@ -45,9 +143,9 @@ const Dashboard = () => {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,234</div>
+              <div className="text-2xl font-bold">{totalAttempts}</div>
               <p className="text-xs text-muted-foreground">
-                +8% from last month
+                Real-time count
               </p>
             </CardContent>
           </Card>
@@ -58,9 +156,9 @@ const Dashboard = () => {
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">78%</div>
+              <div className="text-2xl font-bold">{avgScore}%</div>
               <p className="text-xs text-muted-foreground">
-                +3% from last month
+                Real-time average
               </p>
             </CardContent>
           </Card>
@@ -71,7 +169,7 @@ const Dashboard = () => {
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockSkillCategories.length}</div>
+              <div className="text-2xl font-bold">{categories.length}</div>
               <p className="text-xs text-muted-foreground">
                 Active categories
               </p>
@@ -118,21 +216,21 @@ const Dashboard = () => {
                   <div className="w-2 h-2 bg-primary rounded-full"></div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">New user registered</p>
-                    <p className="text-xs text-muted-foreground">2 minutes ago</p>
+                    <p className="text-xs text-muted-foreground">(Real-time data not implemented)</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-success rounded-full"></div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">Quiz completed</p>
-                    <p className="text-xs text-muted-foreground">5 minutes ago</p>
+                    <p className="text-xs text-muted-foreground">(Real-time data not implemented)</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
                   <div className="w-2 h-2 bg-warning rounded-full"></div>
                   <div className="flex-1">
                     <p className="text-sm font-medium">New question added</p>
-                    <p className="text-xs text-muted-foreground">1 hour ago</p>
+                    <p className="text-xs text-muted-foreground">(Real-time data not implemented)</p>
                   </div>
                 </div>
               </div>
@@ -144,9 +242,9 @@ const Dashboard = () => {
   }
 
   // User Dashboard
-  const userAttempts = mockQuizAttempts.filter(attempt => attempt.userId === user?.id);
-  const averageScore = userAttempts.length > 0 
-    ? Math.round(userAttempts.reduce((acc, attempt) => acc + attempt.score, 0) / userAttempts.length)
+  const quizzesTaken = userAttempts.length;
+  const averageScore = quizzesTaken > 0
+    ? Math.round(userAttempts.reduce((acc, attempt) => acc + attempt.score, 0) / quizzesTaken)
     : 0;
 
   return (
@@ -163,7 +261,7 @@ const Dashboard = () => {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{userAttempts.length}</div>
+            <div className="text-2xl font-bold">{quizzesTaken}</div>
             <p className="text-xs text-muted-foreground">
               Keep practicing!
             </p>
@@ -189,7 +287,7 @@ const Dashboard = () => {
             <Target className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockSkillCategories.length}</div>
+            <div className="text-2xl font-bold">{userCategories.length}</div>
             <p className="text-xs text-muted-foreground">
               Available to practice
             </p>
@@ -204,12 +302,12 @@ const Dashboard = () => {
             <CardDescription>Choose a category to start practicing</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {mockSkillCategories.map((category) => (
+            {userCategories.map((category: any) => (
               <div key={category.id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
                 <div>
                   <h4 className="font-medium">{category.name}</h4>
                   <p className="text-sm text-muted-foreground">{category.description}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{category.questionCount} questions</p>
+                  {/* <p className="text-xs text-muted-foreground mt-1">{category.questionCount} questions</p> */}
                 </div>
                 <Link to={`/quiz?category=${category.id}`}>
                   <Button size="sm" className="bg-gradient-to-r from-primary to-accent hover:opacity-90">
@@ -229,14 +327,14 @@ const Dashboard = () => {
           <CardContent>
             {userAttempts.length > 0 ? (
               <div className="space-y-3">
-                {userAttempts.slice(-3).reverse().map((attempt) => {
-                  const category = mockSkillCategories.find(c => c.id === attempt.skillCategoryId);
+                {userAttempts.slice(-3).reverse().map((attempt: any) => {
+                  const category = userCategories.find((c: any) => c.id === attempt.skill_category_id);
                   return (
                     <div key={attempt.id} className="flex items-center justify-between p-3 border border-border rounded-lg">
                       <div>
                         <h4 className="font-medium">{category?.name}</h4>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(attempt.completedAt).toLocaleDateString()}
+                          {new Date(attempt.completed_at).toLocaleDateString()}
                         </p>
                       </div>
                       <div className="text-right">
@@ -247,7 +345,7 @@ const Dashboard = () => {
                           {attempt.score}%
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {attempt.totalQuestions} questions
+                          {attempt.total_questions || attempt.totalQuestions || '?'} questions
                         </p>
                       </div>
                     </div>
