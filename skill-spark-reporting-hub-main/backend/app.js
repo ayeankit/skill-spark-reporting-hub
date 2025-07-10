@@ -11,7 +11,13 @@ const questionsRoutes = require('./routes/questions');
 const quizRoutes = require('./routes/quiz');
 const reportsRoutes = require('./routes/reports');
 
-app.use(cors());
+const corsOptions = {
+  origin: ['https://skill-spark-reporting-hub.vercel.app'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use('/api/auth', authRoutes);
