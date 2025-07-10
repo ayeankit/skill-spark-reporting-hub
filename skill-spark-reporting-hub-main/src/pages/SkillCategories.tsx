@@ -18,12 +18,14 @@ const SkillCategories: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   const fetchCategories = async () => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch("/api/skill-categories", {
+      const res = await fetch(`${API_URL}/skill-categories`, {
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
@@ -56,7 +58,7 @@ const SkillCategories: React.FC = () => {
     if (!window.confirm("Are you sure you want to delete this skill category?")) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`/api/skill-categories/${id}`, {
+      const res = await fetch(`${API_URL}/skill-categories/${id}`, {
         method: 'DELETE',
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
@@ -93,7 +95,7 @@ const SkillCategories: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       if (isEdit) {
-        const res = await fetch(`/api/skill-categories/${formCategory.id}`, {
+        const res = await fetch(`${API_URL}/skill-categories/${formCategory.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -113,7 +115,7 @@ const SkillCategories: React.FC = () => {
           throw new Error(errorMsg);
         }
       } else {
-        const res = await fetch('/api/skill-categories', {
+        const res = await fetch(`${API_URL}/skill-categories`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
