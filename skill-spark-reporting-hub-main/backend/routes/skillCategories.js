@@ -36,6 +36,17 @@ router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
   }
 });
 
+// User-accessible: Get skill category by ID
+router.get('/user/:id', authenticateToken, async (req, res) => {
+  try {
+    const categoriesResult = await pool.query('SELECT * FROM skill_categories WHERE id = $1', [req.params.id]);
+    if (categoriesResult.rows.length === 0) return res.status(404).json({ message: 'Skill category not found' });
+    res.json({ category: categoriesResult.rows[0] });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // Create skill category (admin only)
 router.post('/', authenticateToken, authorizeRoles('admin'), [
   body('name').notEmpty(),

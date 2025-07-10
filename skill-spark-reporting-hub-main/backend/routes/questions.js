@@ -104,4 +104,21 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
   }
 });
 
+// User-accessible: Get questions for a skill category
+router.get('/user', authenticateToken, async (req, res) => {
+  const { skill_category_id } = req.query;
+  if (!skill_category_id) {
+    return res.status(400).json({ message: 'Missing skill_category_id' });
+  }
+  try {
+    const questionsResult = await pool.query(
+      'SELECT * FROM questions WHERE skill_category_id = $1 ORDER BY created_at DESC',
+      [skill_category_id]
+    );
+    res.json({ questions: questionsResult.rows });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 module.exports = router; 

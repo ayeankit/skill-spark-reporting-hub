@@ -32,16 +32,16 @@ const Quiz = () => {
       setLoading(true);
       setError(null);
       try {
-        // Fetch category
-        const catRes = await fetch(`${API_URL}/skill-categories/${categoryId}`, {
+        // Fetch category (user endpoint)
+        const catRes = await fetch(`${API_URL}/skill-categories/user/${categoryId}`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         if (!catRes.ok) throw new Error('Failed to fetch category');
         const catData = await catRes.json();
         setCategory(catData.category);
 
-        // Fetch questions for this category
-        const qRes = await fetch(`${API_URL}/questions?skill_category_id=${categoryId}`, {
+        // Fetch questions for this category (user endpoint)
+        const qRes = await fetch(`${API_URL}/questions/user?skill_category_id=${categoryId}`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         if (!qRes.ok) throw new Error('Failed to fetch questions');
