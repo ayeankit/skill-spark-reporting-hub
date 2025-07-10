@@ -19,11 +19,13 @@ const UserManagement: React.FC = () => {
   const [isEdit, setIsEdit] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  const API_URL = import.meta.env.VITE_API_URL;
+
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch(`${API_URL}/users`);
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(data.users || []);
@@ -39,7 +41,7 @@ const UserManagement: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/users/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error("Failed to delete user");
       fetchUsers();
     } catch (err: any) {
@@ -70,14 +72,14 @@ const UserManagement: React.FC = () => {
     setFormError(null);
     try {
       if (isEdit) {
-        const res = await fetch(`/api/users/${formUser.id}`, {
+        const res = await fetch(`${API_URL}/users/${formUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formUser.name, email: formUser.email, role: formUser.role })
         });
         if (!res.ok) throw new Error("Failed to update user");
       } else {
-        const res = await fetch('/api/users', {
+        const res = await fetch(`${API_URL}/users`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: formUser.name, email: formUser.email, password: 'changeme', role: formUser.role })
