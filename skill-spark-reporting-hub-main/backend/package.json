@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "seed:skills-questions": "mysql -u $DB_USER -p$DB_PASSWORD -h $DB_HOST -P $DB_PORT $DB_NAME < models/dummy_skills_questions.sql"
+    "seed:skills-questions": "mysql -u $DB_USER -p$DB_PASSWORD -h $DB_HOST -P $DB_PORT $DB_NAME < models/dummy_skills_questions.sql",
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
