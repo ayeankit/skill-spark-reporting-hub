@@ -22,8 +22,20 @@ const Report: React.FC = () => {
       let url = `${API_URL}/reports/` + tab;
       if (tab === "time-performance") url += `?period=${period}`;
       try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Failed to fetch report");
+        const token = localStorage.getItem('token');
+        const res = await fetch(url, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!res.ok) {
+          let errorMsg = 'Failed to fetch report';
+          try {
+            const text = await res.text();
+            errorMsg = text && JSON.parse(text).message ? JSON.parse(text).message : errorMsg;
+          } catch {
+            // If not JSON, keep default errorMsg
+          }
+          throw new Error(errorMsg);
+        }
         const d = await res.json();
         setData(d);
       } catch (err: any) {
