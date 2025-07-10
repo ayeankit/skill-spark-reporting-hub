@@ -28,8 +28,20 @@ const SkillCategories: React.FC = () => {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
-      if (!res.ok) throw new Error("Failed to fetch skill categories");
-      const data = await res.json();
+      if (!res.ok) {
+        let errorMsg = `Error: ${res.status} ${res.statusText}`;
+        try {
+          const text = await res.text();
+          if (text) {
+            const data = JSON.parse(text);
+            errorMsg = data.message || JSON.stringify(data);
+          }
+        } catch {}
+        throw new Error(errorMsg);
+      }
+      // Only parse JSON if there is content
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : {};
       setCategories(data.categories || []);
     } catch (err: any) {
       setError(err.message || "Unknown error");
@@ -89,7 +101,17 @@ const SkillCategories: React.FC = () => {
           },
           body: JSON.stringify({ name: formCategory.name, description: formCategory.description })
         });
-        if (!res.ok) throw new Error("Failed to update skill category");
+        if (!res.ok) {
+          let errorMsg = `Error: ${res.status} ${res.statusText}`;
+          try {
+            const text = await res.text();
+            if (text) {
+              const data = JSON.parse(text);
+              errorMsg = data.message || JSON.stringify(data);
+            }
+          } catch {}
+          throw new Error(errorMsg);
+        }
       } else {
         const res = await fetch('/api/skill-categories', {
           method: 'POST',
@@ -100,8 +122,15 @@ const SkillCategories: React.FC = () => {
           body: JSON.stringify({ name: formCategory.name, description: formCategory.description })
         });
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || "Failed to create skill category");
+          let errorMsg = `Error: ${res.status} ${res.statusText}`;
+          try {
+            const text = await res.text();
+            if (text) {
+              const data = JSON.parse(text);
+              errorMsg = data.message || JSON.stringify(data);
+            }
+          } catch {}
+          throw new Error(errorMsg);
         }
       }
       setShowForm(false);
