@@ -83,8 +83,20 @@ const UserManagement: React.FC = () => {
           body: JSON.stringify({ name: formUser.name, email: formUser.email, password: 'changeme', role: formUser.role })
         });
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.message || "Failed to create user");
+          // Try to parse error JSON, but handle empty body
+          let errorMsg = 'Failed to create user';
+          try {
+            const text = await res.text();
+            if (text) {
+              const data = JSON.parse(text);
+              errorMsg = data.message || JSON.stringify(data);
+            } else {
+              errorMsg = `Error: ${res.status} ${res.statusText}`;
+            }
+          } catch {
+            errorMsg = `Error: ${res.status} ${res.statusText}`;
+          }
+          throw new Error(errorMsg);
         }
       }
       setShowForm(false);
