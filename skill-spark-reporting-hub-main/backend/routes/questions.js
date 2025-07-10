@@ -10,22 +10,24 @@ const router = express.Router();
 router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { page = 1, limit = 10, search = '', skill_category_id } = req.query;
   const offset = (page - 1) * limit;
-  let where = 'WHERE question_text LIKE ?';
+  let where = 'WHERE question_text ILIKE $1';
   let params = [`%${search}%`];
+  let paramIdx = 2;
   if (skill_category_id) {
-    where += ' AND skill_category_id = ?';
+    where += ` AND skill_category_id = $${paramIdx}`;
     params.push(skill_category_id);
+    paramIdx++;
   }
   try {
-    const [questions] = await pool.query(
-      `SELECT * FROM questions ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    const questionsResult = await pool.query(
+      `SELECT * FROM questions ${where} ORDER BY created_at DESC LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, Number(limit), Number(offset)]
     );
-    const [countRows] = await pool.query(
+    const countResult = await pool.query(
       `SELECT COUNT(*) as count FROM questions ${where}`,
       params
     );
-    res.json({ questions, total: countRows[0].count });
+    res.json({ questions: questionsResult.rows, total: countResult.rows[0].count });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -34,9 +36,9 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
 // Get question by ID (admin only)
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [questions] = await pool.query('SELECT * FROM questions WHERE id = ?', [req.params.id]);
-    if (questions.length === 0) return res.status(404).json({ message: 'Question not found' });
-    res.json(questions[0]);
+    const questionsResult = await pool.query('SELECT * FROM questions WHERE id = $1', [req.params.id]);
+    if (questionsResult.rows.length === 0) return res.status(404).json({ message: 'Question not found' });
+    res.json(questionsResult.rows[0]);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -56,7 +58,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), [
   const { skill_category_id, question_text, options, correct_option } = req.body;
   try {
     await pool.query(
-      'INSERT INTO questions (skill_category_id, question_text, options, correct_option) VALUES (?, ?, ?, ?)',
+      'INSERT INTO questions (skill_category_id, question_text, options, correct_option) VALUES ($1, $2, $3, $4)',
       [skill_category_id, question_text, JSON.stringify(options), correct_option]
     );
     res.status(201).json({ message: 'Question created' });
@@ -78,10 +80,10 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), [
   }
   const { skill_category_id, question_text, options, correct_option } = req.body;
   try {
-    const [questions] = await pool.query('SELECT id FROM questions WHERE id = ?', [req.params.id]);
-    if (questions.length === 0) return res.status(404).json({ message: 'Question not found' });
+    const questionsResult = await pool.query('SELECT id FROM questions WHERE id = $1', [req.params.id]);
+    if (questionsResult.rows.length === 0) return res.status(404).json({ message: 'Question not found' });
     await pool.query(
-      'UPDATE questions SET skill_category_id = COALESCE(?, skill_category_id), question_text = COALESCE(?, question_text), options = COALESCE(?, options), correct_option = COALESCE(?, correct_option) WHERE id = ?',
+      'UPDATE questions SET skill_category_id = COALESCE($1, skill_category_id), question_text = COALESCE($2, question_text), options = COALESCE($3, options), correct_option = COALESCE($4, correct_option) WHERE id = $5',
       [skill_category_id, question_text, options ? JSON.stringify(options) : undefined, correct_option, req.params.id]
     );
     res.json({ message: 'Question updated' });
@@ -93,9 +95,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), [
 // Delete question (admin only)
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [questions] = await pool.query('SELECT id FROM questions WHERE id = ?', [req.params.id]);
-    if (questions.length === 0) return res.status(404).json({ message: 'Question not found' });
-    await pool.query('DELETE FROM questions WHERE id = ?', [req.params.id]);
+    const questionsResult = await pool.query('SELECT id FROM questions WHERE id = $1', [req.params.id]);
+    if (questionsResult.rows.length === 0) return res.status(404).json({ message: 'Question not found' });
+    await pool.query('DELETE FROM questions WHERE id = $1', [req.params.id]);
     res.json({ message: 'Question deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

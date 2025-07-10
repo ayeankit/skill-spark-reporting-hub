@@ -22,10 +22,10 @@ router.post('/attempt', authenticateToken, [
   try {
     // Fetch correct answers
     const questionIds = answers.map(a => a.question_id);
-    const [questions] = await pool.query(
-      `SELECT id, correct_option FROM questions WHERE id IN (${questionIds.map(() => '?').join(',')})`,
-      questionIds
+    const questionsResult = await pool.query(
+      `SELECT id, correct_option FROM questions WHERE id = ANY($1)`, [questionIds]
     );
+    const questions = questionsResult.rows;
     // Calculate score and correctness
     const answerMap = {};
     questions.forEach(q => { answerMap[q.id] = q.correct_option; });
@@ -35,15 +35,15 @@ router.post('/attempt', authenticateToken, [
     }));
     score = results.filter(r => r.is_correct).length;
     // Insert attempt
-    const [attemptResult] = await pool.query(
-      'INSERT INTO quiz_attempts (user_id, skill_category_id, score, started_at, completed_at) VALUES (?, ?, ?, ?, ?)',
+    const attemptResult = await pool.query(
+      'INSERT INTO quiz_attempts (user_id, skill_category_id, score, started_at, completed_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [user_id, skill_category_id, score, started_at, new Date()]
     );
-    const attempt_id = attemptResult.insertId;
+    const attempt_id = attemptResult.rows[0].id;
     // Insert answers
     for (const r of results) {
       await pool.query(
-        'INSERT INTO quiz_answers (attempt_id, question_id, selected_option, is_correct, answered_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO quiz_answers (attempt_id, question_id, selected_option, is_correct, answered_at) VALUES ($1, $2, $3, $4, $5)',
         [attempt_id, r.question_id, r.selected_option, r.is_correct, new Date()]
       );
     }
@@ -60,26 +60,26 @@ router.get('/attempts', authenticateToken, async (req, res) => {
   let where = '';
   let params = [];
   if (req.user.role === 'user') {
-    where = 'WHERE user_id = ?';
+    where = 'WHERE user_id = $1';
     params.push(req.user.id);
   } else if (user_id) {
-    where = 'WHERE user_id = ?';
+    where = 'WHERE user_id = $1';
     params.push(user_id);
   }
   if (skill_category_id) {
-    where += (where ? ' AND ' : 'WHERE ') + 'skill_category_id = ?';
+    where += (where ? ' AND ' : 'WHERE ') + `skill_category_id = $${params.length + 1}`;
     params.push(skill_category_id);
   }
   try {
-    const [attempts] = await pool.query(
-      `SELECT * FROM quiz_attempts ${where} ORDER BY started_at DESC LIMIT ? OFFSET ?`,
+    const attemptsResult = await pool.query(
+      `SELECT * FROM quiz_attempts ${where} ORDER BY started_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, Number(limit), Number(offset)]
     );
-    const [countRows] = await pool.query(
+    const countResult = await pool.query(
       `SELECT COUNT(*) as count FROM quiz_attempts ${where}`,
       params
     );
-    res.json({ attempts, total: countRows[0].count });
+    res.json({ attempts: attemptsResult.rows, total: countResult.rows[0].count });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -89,14 +89,14 @@ router.get('/attempts', authenticateToken, async (req, res) => {
 router.get('/attempt/:id/answers', authenticateToken, async (req, res) => {
   const attempt_id = req.params.id;
   try {
-    const [attempts] = await pool.query('SELECT * FROM quiz_attempts WHERE id = ?', [attempt_id]);
-    if (attempts.length === 0) return res.status(404).json({ message: 'Attempt not found' });
-    const attempt = attempts[0];
+    const attemptsResult = await pool.query('SELECT * FROM quiz_attempts WHERE id = $1', [attempt_id]);
+    if (attemptsResult.rows.length === 0) return res.status(404).json({ message: 'Attempt not found' });
+    const attempt = attemptsResult.rows[0];
     if (req.user.role !== 'admin' && attempt.user_id !== req.user.id) {
       return res.status(403).json({ message: 'Forbidden' });
     }
-    const [answers] = await pool.query('SELECT * FROM quiz_answers WHERE attempt_id = ?', [attempt_id]);
-    res.json({ attempt, answers });
+    const answersResult = await pool.query('SELECT * FROM quiz_answers WHERE attempt_id = $1', [attempt_id]);
+    res.json({ attempt, answers: answersResult.rows });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

@@ -8,7 +8,7 @@ const router = express.Router();
 // 1. User-wise performance report
 router.get('/user-performance', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const result = await pool.query(`
       SELECT u.id as user_id, u.name, u.email, u.role,
         COUNT(qa.id) as total_attempts,
         AVG(qa.score) as avg_score
@@ -17,7 +17,7 @@ router.get('/user-performance', authenticateToken, authorizeRoles('admin'), asyn
       GROUP BY u.id
       ORDER BY avg_score DESC
     `);
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -26,7 +26,7 @@ router.get('/user-performance', authenticateToken, authorizeRoles('admin'), asyn
 // 2. Skill gap report (average score per skill)
 router.get('/skill-gap', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const result = await pool.query(`
       SELECT sc.id as skill_category_id, sc.name as skill_name,
         COUNT(qa.id) as total_attempts,
         AVG(qa.score) as avg_score
@@ -35,7 +35,7 @@ router.get('/skill-gap', authenticateToken, authorizeRoles('admin'), async (req,
       GROUP BY sc.id
       ORDER BY avg_score ASC
     `);
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -46,15 +46,15 @@ router.get('/time-performance', authenticateToken, authorizeRoles('admin'), asyn
   const { period = 'week' } = req.query; // 'week' or 'month'
   let groupBy, dateFormat;
   if (period === 'month') {
-    groupBy = 'YEAR(qa.completed_at), MONTH(qa.completed_at)';
-    dateFormat = '%Y-%m';
+    groupBy = `DATE_TRUNC('month', qa.completed_at)`;
+    dateFormat = 'YYYY-MM';
   } else {
-    groupBy = 'YEAR(qa.completed_at), WEEK(qa.completed_at)';
-    dateFormat = '%x-%v';
+    groupBy = `DATE_TRUNC('week', qa.completed_at)`;
+    dateFormat = 'IYYY-IW'; // ISO week
   }
   try {
-    const [rows] = await pool.query(`
-      SELECT DATE_FORMAT(qa.completed_at, ?) as period,
+    const result = await pool.query(`
+      SELECT TO_CHAR(${groupBy}, $1) as period,
         COUNT(qa.id) as total_attempts,
         AVG(qa.score) as avg_score
       FROM quiz_attempts qa
@@ -62,7 +62,7 @@ router.get('/time-performance', authenticateToken, authorizeRoles('admin'), asyn
       GROUP BY ${groupBy}
       ORDER BY period DESC
     `, [dateFormat]);
-    res.json(rows);
+    res.json(result.rows);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }

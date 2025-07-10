@@ -11,15 +11,15 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
   const { page = 1, limit = 10, search = '' } = req.query;
   const offset = (page - 1) * limit;
   try {
-    const [users] = await pool.query(
-      'SELECT id, name, email, role, created_at FROM users WHERE name LIKE ? OR email LIKE ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+    const usersResult = await pool.query(
+      'SELECT id, name, email, role, created_at FROM users WHERE name ILIKE $1 OR email ILIKE $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4',
       [`%${search}%`, `%${search}%`, Number(limit), Number(offset)]
     );
-    const [countRows] = await pool.query(
-      'SELECT COUNT(*) as count FROM users WHERE name LIKE ? OR email LIKE ?',
+    const countResult = await pool.query(
+      'SELECT COUNT(*) as count FROM users WHERE name ILIKE $1 OR email ILIKE $2',
       [`%${search}%`, `%${search}%`]
     );
-    res.json({ users, total: countRows[0].count });
+    res.json({ users: usersResult.rows, total: countResult.rows[0].count });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -28,9 +28,9 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
 // Get user by ID (admin only)
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id, name, email, role, created_at FROM users WHERE id = ?', [req.params.id]);
-    if (users.length === 0) return res.status(404).json({ message: 'User not found' });
-    res.json(users[0]);
+    const usersResult = await pool.query('SELECT id, name, email, role, created_at FROM users WHERE id = $1', [req.params.id]);
+    if (usersResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    res.json(usersResult.rows[0]);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
@@ -49,13 +49,13 @@ router.post('/', authenticateToken, authorizeRoles('admin'), [
   }
   const { name, email, password, role } = req.body;
   try {
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length > 0) {
+    const existingResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingResult.rows.length > 0) {
       return res.status(409).json({ message: 'Email already registered' });
     }
     const bcrypt = require('bcryptjs');
     const hashed = await bcrypt.hash(password, 10);
-    await pool.query('INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)', [name, email, hashed, role]);
+    await pool.query('INSERT INTO users (name, email, password, role) VALUES ($1, $2, $3, $4)', [name, email, hashed, role]);
     res.status(201).json({ message: 'User created' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -74,9 +74,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), [
   }
   const { name, email, role } = req.body;
   try {
-    const [users] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
-    if (users.length === 0) return res.status(404).json({ message: 'User not found' });
-    await pool.query('UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), role = COALESCE(?, role) WHERE id = ?', [name, email, role, req.params.id]);
+    const usersResult = await pool.query('SELECT id FROM users WHERE id = $1', [req.params.id]);
+    if (usersResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    await pool.query('UPDATE users SET name = COALESCE($1, name), email = COALESCE($2, email), role = COALESCE($3, role) WHERE id = $4', [name, email, role, req.params.id]);
     res.json({ message: 'User updated' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
@@ -86,9 +86,9 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), [
 // Delete user (admin only)
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [users] = await pool.query('SELECT id FROM users WHERE id = ?', [req.params.id]);
-    if (users.length === 0) return res.status(404).json({ message: 'User not found' });
-    await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+    const usersResult = await pool.query('SELECT id FROM users WHERE id = $1', [req.params.id]);
+    if (usersResult.rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    await pool.query('DELETE FROM users WHERE id = $1', [req.params.id]);
     res.json({ message: 'User deleted' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
