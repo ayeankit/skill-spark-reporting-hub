@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SkillCategory {
   id: number;
@@ -10,6 +11,7 @@ interface SkillCategory {
 const emptyCategory = { id: 0, name: '', description: '', created_at: '' };
 
 const SkillCategories: React.FC = () => {
+  const { user } = useAuth();
   const [categories, setCategories] = useState<SkillCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,8 @@ const SkillCategories: React.FC = () => {
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/skill-categories`, {
+      const endpoint = user?.role === 'admin' ? '/skill-categories' : '/skill-categories/user';
+      const res = await fetch(`${API_URL}${endpoint}`, {
         headers: {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
@@ -41,7 +44,6 @@ const SkillCategories: React.FC = () => {
         } catch {}
         throw new Error(errorMsg);
       }
-      // Only parse JSON if there is content
       const text = await res.text();
       const data = text ? JSON.parse(text) : {};
       setCategories(data.categories || []);
@@ -64,7 +66,17 @@ const SkillCategories: React.FC = () => {
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
-      if (!res.ok) throw new Error("Failed to delete skill category");
+      if (!res.ok) {
+        let errorMsg = `Error: ${res.status} ${res.statusText}`;
+        try {
+          const text = await res.text();
+          if (text) {
+            const data = JSON.parse(text);
+            errorMsg = data.message || JSON.stringify(data);
+          }
+        } catch {}
+        throw new Error(errorMsg);
+      }
       fetchCategories();
     } catch (err: any) {
       alert(err.message || "Delete failed");

@@ -47,6 +47,16 @@ router.get('/user/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// User-accessible: List all skill categories
+router.get('/user', authenticateToken, async (req, res) => {
+  try {
+    const categoriesResult = await pool.query('SELECT * FROM skill_categories ORDER BY created_at DESC');
+    res.json({ categories: categoriesResult.rows });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
 // Create skill category (admin only)
 router.post('/', authenticateToken, authorizeRoles('admin'), [
   body('name').notEmpty(),

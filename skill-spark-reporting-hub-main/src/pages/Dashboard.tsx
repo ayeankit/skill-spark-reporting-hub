@@ -42,7 +42,7 @@ const Dashboard = () => {
         const usersData = await usersRes.json();
         setTotalUsers(usersData.users ? usersData.users.length : 0);
 
-        // Fetch skill categories
+        // Fetch skill categories (admin endpoint)
         const catRes = await fetch(`${API_URL}/skill-categories`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
@@ -87,8 +87,8 @@ const Dashboard = () => {
         const attemptsData = await attemptsRes.json();
         setUserAttempts(attemptsData.attempts || []);
 
-        // Fetch skill categories
-        const catRes = await fetch(`${API_URL}/skill-categories`, {
+        // Fetch skill categories (user endpoint)
+        const catRes = await fetch(`${API_URL}/skill-categories/user`, {
           headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         const catData = await catRes.json();
