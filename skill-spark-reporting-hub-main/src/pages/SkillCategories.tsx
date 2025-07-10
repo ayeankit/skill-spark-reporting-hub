@@ -22,7 +22,12 @@ const SkillCategories: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/skill-categories");
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/skill-categories", {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (!res.ok) throw new Error("Failed to fetch skill categories");
       const data = await res.json();
       setCategories(data.categories || []);
@@ -38,7 +43,13 @@ const SkillCategories: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this skill category?")) return;
     try {
-      const res = await fetch(`/api/skill-categories/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/skill-categories/${id}`, {
+        method: 'DELETE',
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      });
       if (!res.ok) throw new Error("Failed to delete skill category");
       fetchCategories();
     } catch (err: any) {
@@ -68,17 +79,24 @@ const SkillCategories: React.FC = () => {
     e.preventDefault();
     setFormError(null);
     try {
+      const token = localStorage.getItem('token');
       if (isEdit) {
         const res = await fetch(`/api/skill-categories/${formCategory.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ name: formCategory.name, description: formCategory.description })
         });
         if (!res.ok) throw new Error("Failed to update skill category");
       } else {
         const res = await fetch('/api/skill-categories', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ name: formCategory.name, description: formCategory.description })
         });
         if (!res.ok) {
