@@ -6,7 +6,24 @@ const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
-// List questions with pagination and filtering (admin only)
+// User-accessible: Get questions for a skill category
+router.get('/user', authenticateToken, async (req, res) => {
+  const { skill_category_id } = req.query;
+  if (!skill_category_id) {
+    return res.status(400).json({ message: 'Missing skill_category_id' });
+  }
+  try {
+    const questionsResult = await pool.query(
+      'SELECT * FROM questions WHERE skill_category_id = $1 ORDER BY created_at DESC',
+      [skill_category_id]
+    );
+    res.json({ questions: questionsResult.rows });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Admin-only: List questions with pagination and filtering
 router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { page = 1, limit = 10, search = '', skill_category_id } = req.query;
   const offset = (page - 1) * limit;
@@ -33,7 +50,7 @@ router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => 
   }
 });
 
-// Get question by ID (admin only)
+// Admin-only: Get question by ID
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     const questionsResult = await pool.query('SELECT * FROM questions WHERE id = $1', [req.params.id]);
@@ -99,23 +116,6 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
     if (questionsResult.rows.length === 0) return res.status(404).json({ message: 'Question not found' });
     await pool.query('DELETE FROM questions WHERE id = $1', [req.params.id]);
     res.json({ message: 'Question deleted' });
-  } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message });
-  }
-});
-
-// User-accessible: Get questions for a skill category
-router.get('/user', authenticateToken, async (req, res) => {
-  const { skill_category_id } = req.query;
-  if (!skill_category_id) {
-    return res.status(400).json({ message: 'Missing skill_category_id' });
-  }
-  try {
-    const questionsResult = await pool.query(
-      'SELECT * FROM questions WHERE skill_category_id = $1 ORDER BY created_at DESC',
-      [skill_category_id]
-    );
-    res.json({ questions: questionsResult.rows });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
   }
