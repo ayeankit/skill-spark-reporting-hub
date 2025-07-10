@@ -49,4 +49,12 @@ CREATE TABLE IF NOT EXISTS quiz_answers (
   answered_at TIMESTAMP NOT NULL,
   FOREIGN KEY (attempt_id) REFERENCES quiz_attempts(id) ON DELETE CASCADE,
   FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
+);
+
+-- User Tokens table
+CREATE TABLE IF NOT EXISTS user_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ); 
