@@ -68,4 +68,15 @@ router.get('/time-performance', authenticateToken, authorizeRoles('admin'), asyn
   }
 });
 
+router.get('/', (req, res) => {
+  res.json({
+    message: 'Available report endpoints',
+    endpoints: [
+      '/api/reports/user-performance',
+      '/api/reports/skill-gap',
+      '/api/reports/time-performance'
+    ]
+  });
+});
+
 module.exports = router; 
