@@ -22,8 +22,6 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
     // Simulate checking for stored auth token
@@ -34,46 +32,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
-    setError(null);
     try {
-      const API_URL = import.meta.env.VITE_API_URL || '';
       const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      if (!res.ok) {
-        setIsLoading(false);
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('token');
-        return false;
-      }
       const data = await res.json();
-      // Check if user exists in response
-      if (!data.user || !data.user.email) {
+      if (res.ok && data.token) {
+        setUser(data.user);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('token', data.token);
         setIsLoading(false);
-        setUser(null);
-        setToken(null);
-        localStorage.removeItem('token');
-        setError('User does not exist.');
-        return false;
+        return true;
       }
-      setUser(data.user);
-      setToken(data.token);
-      localStorage.setItem('token', data.token);
-      setIsLoading(false);
-      return true;
-    } catch (err: any) {
-      setIsLoading(false);
-      setUser(null);
-      setToken(null);
-      localStorage.removeItem('token');
-      setError('Login failed.');
-      return false;
+    } catch (err) {
+      // Optionally handle error
     }
+    setIsLoading(false);
+    return false;
   };
 
   const logout = () => {
