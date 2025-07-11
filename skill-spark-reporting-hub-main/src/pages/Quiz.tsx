@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,8 +26,33 @@ const Quiz = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // New: For showing categories if no category is selected
+  const [userCategories, setUserCategories] = useState<any[]>([]);
+  const [catLoading, setCatLoading] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
+
+  // Fetch categories if no category is selected
+  useEffect(() => {
+    if (!categoryId && user) {
+      setCatLoading(true);
+      setCatError(null);
+      fetch(`${API_URL}/skill-categories/user`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      })
+        .then(res => res.json())
+        .then(data => {
+          setUserCategories(data.categories || []);
+        })
+        .catch(err => {
+          setCatError('Failed to fetch categories');
+        })
+        .finally(() => setCatLoading(false));
+    }
+  }, [categoryId, user, API_URL, token]);
+
   // Fetch category and questions from backend
   useEffect(() => {
+    if (!categoryId) return;
     const fetchData = async () => {
       setLoading(true);
       setError(null);
@@ -59,7 +84,7 @@ const Quiz = () => {
         setLoading(false);
       }
     };
-    if (categoryId) fetchData();
+    fetchData();
   }, [categoryId, API_URL]);
 
   useEffect(() => {
@@ -69,11 +94,16 @@ const Quiz = () => {
   }, [category, questions, loading, navigate]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeSpent(prev => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    let timer: NodeJS.Timeout | null = null;
+    if (!isCompleted) {
+      timer = setInterval(() => {
+        setTimeSpent(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isCompleted]);
 
   const handleAnswerSelect = (answerIndex: number) => {
     setSelectedAnswers(prev => ({
@@ -133,7 +163,7 @@ const Quiz = () => {
         total: data.total,
         results: data.results
       });
-      setIsCompleted(true);
+      setIsCompleted(true); // This will stop the timer
       toast({
         title: 'Quiz Completed!',
         description: `You scored ${Math.round((data.score / data.total) * 100)}% (${data.score}/${data.total})`,
@@ -150,6 +180,40 @@ const Quiz = () => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // If no category is selected, show categories card
+  if (!categoryId) {
+    if (catLoading) return <div className="p-6">Loading categories...</div>;
+    if (catError) return <div className="p-6 text-red-500">{catError}</div>;
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold text-foreground mb-2">Available Skill Categories</h1>
+        <p className="text-muted-foreground mb-6">Choose a category to start practicing</p>
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle>Available Skill Categories</CardTitle>
+            <CardDescription>Choose a category to start practicing</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {userCategories.length === 0 && (
+              <div className="text-muted-foreground">No categories available.</div>
+            )}
+            {userCategories.map((category: any) => (
+              <div key={category.id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
+                <div>
+                  <h4 className="font-medium">{category.name}</h4>
+                  <p className="text-sm text-muted-foreground">{category.description}</p>
+                </div>
+                <Button asChild size="sm" className="bg-gradient-to-r from-primary to-accent hover:opacity-90">
+                  <a href={`/quiz?category=${category.id}`}>Start Quiz</a>
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) return <div className="p-6">Loading quiz...</div>;
   if (error) return <div className="p-6 text-red-500">{error}</div>;
