@@ -34,12 +34,15 @@ const Questions: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const API_URL = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem('token');
 
   const fetchQuestions = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/questions`);
+      const res = await fetch(`${API_URL}/questions`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (!res.ok) throw new Error("Failed to fetch questions");
       const data = await res.json();
       setQuestions(data.questions || []);
@@ -52,7 +55,9 @@ const Questions: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_URL}/skill-categories`);
+      const res = await fetch(`${API_URL}/skill-categories`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (!res.ok) throw new Error("Failed to fetch skill categories");
       const data = await res.json();
       setCategories(data.categories || []);
@@ -67,7 +72,7 @@ const Questions: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (!window.confirm("Are you sure you want to delete this question?")) return;
     try {
-      const res = await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/questions/${id}`, { method: 'DELETE', headers: token ? { 'Authorization': `Bearer ${token}` } : {} });
       if (!res.ok) throw new Error("Failed to delete question");
       fetchQuestions();
     } catch (err: any) {
@@ -115,7 +120,7 @@ const Questions: React.FC = () => {
       if (isEdit) {
         const res = await fetch(`${API_URL}/questions/${formQuestion.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
           body: JSON.stringify({
             skill_category_id: formQuestion.skill_category_id,
             question_text: formQuestion.question_text,
@@ -127,7 +132,7 @@ const Questions: React.FC = () => {
       } else {
         const res = await fetch(`${API_URL}/questions`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
           body: JSON.stringify({
             skill_category_id: formQuestion.skill_category_id,
             question_text: formQuestion.question_text,
