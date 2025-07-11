@@ -39,12 +39,15 @@ const Quiz = () => {
       fetch(`${API_URL}/skill-categories/user`, {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
       })
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch categories');
+          return res.json();
+        })
         .then(data => {
           setUserCategories(data.categories || []);
         })
         .catch(err => {
-          setCatError('Failed to fetch categories');
+          setCatError('Failed to fetch categories: ' + (err.message || err));
         })
         .finally(() => setCatLoading(false));
     }
@@ -196,7 +199,7 @@ const Quiz = () => {
           </CardHeader>
           <CardContent className="space-y-3">
             {userCategories.length === 0 && (
-              <div className="text-muted-foreground">No categories available.</div>
+              <div className="text-muted-foreground">No categories available. (Debug: userCategories is empty)</div>
             )}
             {userCategories.map((category: any) => (
               <div key={category.id} className="flex items-center justify-between p-3 border border-border rounded-lg hover:bg-muted/50 transition-colors">
