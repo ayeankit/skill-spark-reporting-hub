@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { ChartContainer } from '@/components/ui/chart';
+import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 // Simple bar chart using SVG (no external lib for now)
 const BarChart = ({ data, maxScore = 100 }: { data: { label: string, value: number }[], maxScore?: number }) => {
@@ -97,6 +99,17 @@ const Performance: React.FC = () => {
     value: categoryScores[cat.id]?.count ? Math.round(categoryScores[cat.id].total / categoryScores[cat.id].count * 100 / 100) : 0
   }));
 
+  // Prepare data for line chart: each attempt as a point
+  const lineChartData = attempts.map(a => {
+    const cat = categories.find((c: any) => c.id === a.skill_category_id);
+    return {
+      date: a.completed_at ? new Date(a.completed_at).toLocaleDateString() : '',
+      category: cat ? cat.name : 'Unknown',
+      score: a.score,
+      totalQuestions: a.total_questions || a.totalQuestions || '?',
+    };
+  });
+
   // Find strong and weak areas
   const scoredCats = chartData.filter(d => d.value > 0);
   const strong = scoredCats.length ? scoredCats.reduce((a, b) => (a.value > b.value ? a : b)) : null;
@@ -115,16 +128,58 @@ const Performance: React.FC = () => {
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" />
-            Quiz Scores by Skill
+            Quiz Performance Over Time
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {chartData.some(d => d.value > 0) ? (
+          {lineChartData.length > 0 ? (
             <div className="overflow-x-auto">
-              <BarChart data={chartData} />
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={lineChartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="score" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <div className="text-muted-foreground py-8 text-center">No quiz attempts yet. Take a quiz to see your performance!</div>
+          )}
+        </CardContent>
+      </Card>
+      {/* Show every quiz attempt in a table */}
+      <Card className="shadow-soft">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">All Quiz Attempts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {lineChartData.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 text-left">Date</th>
+                    <th className="px-2 py-1 text-left">Category</th>
+                    <th className="px-2 py-1 text-left">Score</th>
+                    <th className="px-2 py-1 text-left">Questions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineChartData.map((row, idx) => (
+                    <tr key={idx} className="border-b last:border-0">
+                      <td className="px-2 py-1">{row.date}</td>
+                      <td className="px-2 py-1">{row.category}</td>
+                      <td className="px-2 py-1">{row.score}%</td>
+                      <td className="px-2 py-1">{row.totalQuestions}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-muted-foreground py-4 text-center">No quiz attempts yet.</div>
           )}
         </CardContent>
       </Card>
