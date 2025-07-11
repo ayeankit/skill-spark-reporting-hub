@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
@@ -61,6 +61,9 @@ const Performance: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Time filter state
+  const [timeFilter, setTimeFilter] = useState<'all' | 'week' | 'month'>('all');
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -87,9 +90,29 @@ const Performance: React.FC = () => {
     fetchData();
   }, [API_URL, token]);
 
+  // Helper to filter attempts by time
+  const filteredAttempts = useMemo(() => {
+    if (timeFilter === 'all') return attempts;
+    const now = new Date();
+    return attempts.filter(a => {
+      if (!a.completed_at) return false;
+      const date = new Date(a.completed_at);
+      if (timeFilter === 'week') {
+        // Last 7 days
+        const weekAgo = new Date(now);
+        weekAgo.setDate(now.getDate() - 7);
+        return date >= weekAgo && date <= now;
+      } else if (timeFilter === 'month') {
+        // This month
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      }
+      return true;
+    });
+  }, [attempts, timeFilter]);
+
   // Compute average score per category
   const categoryScores: { [catId: number]: { total: number, count: number } } = {};
-  attempts.forEach(a => {
+  filteredAttempts.forEach(a => {
     if (!categoryScores[a.skill_category_id]) categoryScores[a.skill_category_id] = { total: 0, count: 0 };
     categoryScores[a.skill_category_id].total += a.score;
     categoryScores[a.skill_category_id].count += 1;
@@ -100,15 +123,47 @@ const Performance: React.FC = () => {
   }));
 
   // Prepare data for line chart: each attempt as a point
-  const lineChartData = attempts.map(a => {
+  const lineChartData = filteredAttempts.map(a => {
     const cat = categories.find((c: any) => c.id === a.skill_category_id);
     return {
       date: a.completed_at ? new Date(a.completed_at).toLocaleDateString() : '',
       category: cat ? cat.name : 'Unknown',
       score: a.score,
       totalQuestions: a.total_questions || a.totalQuestions || '?',
+      user: a.user_name || a.user || '',
+      userId: a.user_id || '',
     };
   });
+
+  // Compute average score per category (for skill gap)
+  const skillAverages = useMemo(() => {
+    const map: { [catId: number]: { total: number, count: number } } = {};
+    filteredAttempts.forEach(a => {
+      if (!map[a.skill_category_id]) map[a.skill_category_id] = { total: 0, count: 0 };
+      map[a.skill_category_id].total += a.score;
+      map[a.skill_category_id].count += 1;
+    });
+    return categories.map((cat: any) => ({
+      id: cat.id,
+      name: cat.name,
+      avg: map[cat.id]?.count ? Math.round(map[cat.id].total / map[cat.id].count) : 0,
+    }));
+  }, [filteredAttempts, categories]);
+
+  // For admin: user-wise performance (avg score per user)
+  const userAverages = useMemo(() => {
+    const map: { [userId: string]: { total: number, count: number, name: string } } = {};
+    filteredAttempts.forEach(a => {
+      const uid = a.user_id || a.user || 'Unknown';
+      if (!map[uid]) map[uid] = { total: 0, count: 0, name: a.user_name || a.user || 'Unknown' };
+      map[uid].total += a.score;
+      map[uid].count += 1;
+    });
+    return Object.entries(map).map(([id, v]) => ({ id, name: v.name, avg: v.count ? Math.round(v.total / v.count) : 0 }));
+  }, [filteredAttempts]);
+
+  // Skill gap: skills with avg < 60
+  const skillGaps = skillAverages.filter(s => s.avg < 60);
 
   // Find strong and weak areas
   const scoredCats = chartData.filter(d => d.value > 0);
@@ -123,6 +178,12 @@ const Performance: React.FC = () => {
       <div>
         <h1 className="text-3xl font-bold text-foreground mb-1">My Performance</h1>
         <p className="text-muted-foreground">Track your progress and identify areas for improvement</p>
+      </div>
+      {/* Time filter */}
+      <div className="flex gap-2 mb-4">
+        <Button variant={timeFilter === 'all' ? 'default' : 'outline'} onClick={() => setTimeFilter('all')}>All</Button>
+        <Button variant={timeFilter === 'week' ? 'default' : 'outline'} onClick={() => setTimeFilter('week')}>This Week</Button>
+        <Button variant={timeFilter === 'month' ? 'default' : 'outline'} onClick={() => setTimeFilter('month')}>This Month</Button>
       </div>
       <Card className="shadow-soft">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -180,6 +241,74 @@ const Performance: React.FC = () => {
             </div>
           ) : (
             <div className="text-muted-foreground py-4 text-center">No quiz attempts yet.</div>
+          )}
+        </CardContent>
+      </Card>
+      {/* Admin: user-wise performance */}
+      {user?.role === 'admin' && (
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">User-wise Performance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {userAverages.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="px-2 py-1 text-left">User</th>
+                      <th className="px-2 py-1 text-left">Avg Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userAverages.map((row, idx) => (
+                      <tr key={idx} className="border-b last:border-0">
+                        <td className="px-2 py-1">{row.name}</td>
+                        <td className="px-2 py-1">{row.avg}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-muted-foreground py-4 text-center">No user data for this period.</div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+      {/* Skill gap identification */}
+      <Card className="shadow-soft">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Skill Gap Identification</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {skillAverages.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 text-left">Skill</th>
+                    <th className="px-2 py-1 text-left">Avg Score</th>
+                    {user?.role === 'admin' && <th className="px-2 py-1 text-left">Users Below 60%</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {skillAverages.map((row, idx) => (
+                    <tr key={idx} className={row.avg < 60 ? 'bg-red-50' : ''}>
+                      <td className="px-2 py-1">{row.name}</td>
+                      <td className="px-2 py-1">{row.avg}%</td>
+                      {user?.role === 'admin' && (
+                        <td className="px-2 py-1">{
+                          filteredAttempts.filter(a => a.skill_category_id === row.id && a.score < 60).length
+                        }</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-muted-foreground py-4 text-center">No skill data for this period.</div>
           )}
         </CardContent>
       </Card>
