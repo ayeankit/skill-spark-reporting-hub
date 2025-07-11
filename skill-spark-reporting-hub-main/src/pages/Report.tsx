@@ -104,7 +104,11 @@ const Report: React.FC = () => {
                   <td className="py-2 px-4 border-b">{row.email}</td>
                   <td className="py-2 px-4 border-b">{row.role}</td>
                   <td className="py-2 px-4 border-b">{row.total_attempts}</td>
-                  <td className="py-2 px-4 border-b">{row.avg_score?.toFixed(2)}</td>
+                  <td className="py-2 px-4 border-b">{
+                    row.avg_score === null || row.avg_score === undefined
+                      ? 'N/A'
+                      : `${Math.round(Number(row.avg_score) * 100)}%`
+                  }</td>
                 </tr>
               ))
             ) : tab === "skill-gap" ? (
